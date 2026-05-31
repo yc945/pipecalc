@@ -1,0 +1,41 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build APK with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: android debug
+          buildozer_version: stable
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipecalc-debug
+          path: ${{ steps.buildozer.outputs.filename }}
+          retention-days: 30
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "供水水力计算 v${{ github.run_number }}"
+          files: ${{ steps.buildozer.outputs.filename }}
+          body: |
+            农村安全供水管道水力计算 Android 应用
+            参照 GB 50013-2018 | SL 310-2019
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
