@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -26,8 +29,7 @@ jobs:
             openjdk-17-jdk \
             build-essential autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
-            libffi-dev libssl-dev \
-            libltdl-dev cmake
+            libffi-dev libssl-dev cmake
 
       - name: Install Python build tools
         run: |
@@ -42,8 +44,15 @@ jobs:
           key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
           restore-keys: buildozer-${{ runner.os }}-
 
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
+          yes | buildozer android debug 2>&1 | grep -E "license|License|Accept|accept" | head -5 || true
+          find ~/.buildozer -name "sdkmanager" 2>/dev/null | head -1 | xargs -I{} sh -c 'yes | {} --licenses' 2>/dev/null || true
+
       - name: Build APK
-        run: buildozer -v android debug 2>&1 | tail -100
+        run: buildozer android debug 2>&1 | tail -200
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -53,6 +62,7 @@ jobs:
           retention-days: 30
 
       - name: Create Release
+        if: success()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
